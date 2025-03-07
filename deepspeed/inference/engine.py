@@ -15,7 +15,6 @@ from packaging import version as pkg_version
 from deepspeed.runtime.checkpoint_engine.torch_checkpoint_engine import TorchCheckpointEngine
 from deepspeed.utils.timer import SynchronizedWallClockTimer
 from deepspeed.runtime.compiler import is_compile_supported
-
 from ..runtime.state_dict_factory import SDLoaderFactory
 from ..runtime.weight_quantizer import WeightQuantization
 from ..module_inject import replace_transformer_layer, generic_injection
@@ -169,7 +168,7 @@ class InferenceEngine(Module):
         is_meta_device = hasattr(self.module, "device") and self.module.device.type == 'meta'
         if is_meta_device:
             self.module.to_empty(device=device)
-        else:
+        elif not config.keep_module_on_host:
             self.module.to(device)
 
         if config.tensor_parallel.tp_size > 1:
@@ -594,14 +593,14 @@ class InferenceEngine(Module):
 
         if num_beams > 1:
             raise NotImplementedError("DeepSpeed does not support `num_beams` > 1, if this is important to you please "
-                                      "add your request to: https://github.com/microsoft/DeepSpeed/issues/2506")
+                                      "add your request to: https://github.com/deepspeedai/DeepSpeed/issues/2506")
 
         if ("input_ids" in kwargs) and (kwargs["input_ids"].dim() == 2):
             for input_tensor in kwargs["input_ids"]:
                 tensor_length = input_tensor.shape[-1]
                 if tensor_length > self._config.max_out_tokens:
                     raise RuntimeError(
-                        f"Input with size {tensor_length} exceeds maximum length of {self._config.max_out_tokens}. Please increase `max_tokens` in the DeepSpeed Inference Config."
+                        f"Input with size {tensor_length} exceeds maximum length of {self._config.max_out_tokens}. Please increase max_tokens in the DeepSpeed Inference Config."
                     )
 
         return self.module.generate(*inputs, **kwargs)
